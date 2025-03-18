@@ -2,33 +2,44 @@
 #include <JuceHeader.h>
 
 //==============================================================================
-MainComponent::MainComponent()
-    : openFileBrowserButton("Load a WAV file"),
-    fileBrowserStatusMessage("No file loaded"),
+MainComponent::MainComponent():
+    convolutionComboboxText("Convolute with"),
     waveformDisplay(*audioFormatManager)
+    
 {
-    addAndMakeVisible(openFileBrowserButton);
-    openFileBrowserButton.addListener(this);
+    addAndMakeVisible(waveFileHandlerButtons);
+    waveFileHandlerButtons.setListener(this);
     
     audioFormatManager->registerBasicFormats();
     
-    addAndMakeVisible(waveformDisplay);
+    waveformDisplay.setTransportSource(&transportSource);
+    addAndMakeVisible(waveformDisplay); // adds the component to the parent's hierarchy - a must for rendering anything
     
     deviceManager.initialiseWithDefaultDevices(0, 2);
     deviceManager.addAudioCallback(&sourcePlayer);
     sourcePlayer.setSource(&transportSource);
-    setSize (600, 400);
+    
+    convolutionOptions.addItem("No convolution", 1);
+    convolutionOptions.addItem("convolution option 1", 2);
+    convolutionOptions.addItem("convolution option 2", 3);
+    convolutionOptions.addItem("convolution option 3", 4);
+    convolutionOptions.addItem("convolution option 4", 5);
+    convolutionOptions.setSelectedItemIndex(0);
+    
+    addAndMakeVisible(convolutionOptions);
+    convolutionOptions.addListener(this);
+    setSize(600, 400);
 }
 
 MainComponent::~MainComponent()
 {
-    openFileBrowserButton.removeListener(this);
     sourcePlayer.setSource(nullptr);
     deviceManager.removeAudioCallback(&sourcePlayer);
     transportSource.setSource(nullptr);
 }
 
-//==============================================================================
+// used only for graphics only and not layout
+// use resized for layout
 void MainComponent::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
@@ -36,33 +47,77 @@ void MainComponent::paint (juce::Graphics& g)
 
     g.setFont (juce::FontOptions (16.0f));
     g.setColour (juce::Colours::white);
-    g.drawText(fileBrowserStatusMessage, getLocalBounds().removeFromBottom(40), juce::Justification::centred, true);
 }
 
 void MainComponent::resized()
 {
-    // This is called when the MainComponent is resized.
-    // If you add any child components, this is where you should
-    // update their positions.
-    auto area = getLocalBounds();
-    // Status area at the bottom
-    auto statusArea = area.removeFromBottom(40);
-    // Button area at the bottom of the remaining space
-    auto buttonArea = area.removeFromBottom(60);
-    openFileBrowserButton.setBounds(buttonArea.getCentreX() - 100, buttonArea.getCentreY() - 20, 200, 40);
+
+    juce::FlexBox flex;
+    flex.flexDirection = juce::FlexBox::Direction::column;
+    flex.justifyContent = juce::FlexBox::JustifyContent::center;
+    flex.alignItems = juce::FlexBox::AlignItems::center;
+    flex.flexWrap = juce::FlexBox::Wrap::noWrap;
+
+
+    flex.items.add(juce::FlexItem(waveformDisplay).withFlex(4.0f).withWidth(getWidth() * 0.9f).withHeight(getHeight() * 0.6f));
+
+    // add some spacing
+    flex.items.add(juce::FlexItem().withHeight(20));
+
+    flex.items.add(juce::FlexItem(waveFileHandlerButtons).withFlex(1.0f).withWidth(getWidth()).withHeight(50));
+
+    // add some more spacing
+    flex.items.add(juce::FlexItem().withHeight(20));
     
-    // Use the rest of the space for the waveform display
-    waveformDisplay.setBounds(area);
+    flex.items.add(juce::FlexItem(convolutionOptions).withFlex(1.0f).withWidth(getWidth() * 0.5f).withHeight(30));
+
+    flex.performLayout(getLocalBounds().reduced(10));
 }
 
 
-void MainComponent::buttonClicked(juce::Button *button) {
-    if(button == &openFileBrowserButton) {
-        loadWavFile();
+void MainComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
+{
+    if(comboBoxThatHasChanged == &convolutionOptions)
+    {
+        int selectedId = convolutionOptions.getSelectedId();
+            switch (selectedId)
+            {
+                case 1:
+                    break;
+                case 2:
+                    break;
+            }
     }
 }
 
-void MainComponent::loadWavFile() {
+void MainComponent::loadWavFileButtonClicked()
+{
+    loadWavFile();
+}
+
+void MainComponent::playButtonClicked(bool shouldPlay)
+{
+    if(transportSource.isPlaying())
+    {
+        transportSource.stop();
+    }
+    else
+    {
+        transportSource.start();
+    }
+    waveFileHandlerButtons.updatePlayButtonText(shouldPlay);
+}
+
+void MainComponent::shouldLoopToggled(bool shouldLoop)
+{
+    if(readerSource != nullptr)
+    {
+        readerSource->setLooping(shouldLoop);
+    }
+}
+
+void MainComponent::loadWavFile()
+{
     currentFileChooser = std::make_unique<juce::FileChooser>("Select a WAV file...", juce::File{}, "*.wav");
     auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
     
@@ -78,21 +133,14 @@ void MainComponent::loadWavFile() {
                 audioFormatReader.reset(reader.release());
                 
                 waveformDisplay.setSource(file);
-                
-                transportSource.start();
-                
-                fileBrowserStatusMessage = "Playing " + file.getFileName();
+                if(waveFileHandlerButtons.loopButton.getToggleState())
+                {
+                    readerSource->setLooping(true);
+                    transportSource.start();
+                    waveFileHandlerButtons.updatePlayButtonText(true);
+                }
                 repaint();
             }
-            else
-            {
-                fileBrowserStatusMessage = "Failed to load the file (unsupported format)";
-                repaint();
-            }
-        }
-        else {
-            fileBrowserStatusMessage = "Failed to load the file";
-            repaint();
         }
     });
     
