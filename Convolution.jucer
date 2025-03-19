@@ -3,6 +3,15 @@
 <JUCERPROJECT id="Yz4X8b" name="Convolution" projectType="guiapp" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="NzhN72" name="Convolution">
+    <GROUP id="{10E75159-A624-027E-5FDD-4DCC00F0D0C0}" name="Assets">
+      <FILE id="AczHiL" name="BIG_HALL.wav" compile="0" resource="1" file="../../../../Downloads/BIG_HALL.wav"/>
+      <FILE id="ic5A74" name="decaying_white_noise.wav" compile="0" resource="1"
+            file="../../../../Downloads/decaying_white_noise.wav"/>
+      <FILE id="e0kQAv" name="Metallic_delay_effect.wav" compile="0" resource="1"
+            file="../../../../Downloads/Metallic_delay_effect.wav"/>
+      <FILE id="Vmyipx" name="SMALL_CHURCH.wav" compile="0" resource="1"
+            file="../../../../Downloads/SMALL_CHURCH.wav"/>
+    </GROUP>
     <GROUP id="{75EC7C9D-5057-88CD-2EFD-F32D20B313E7}" name="Source">
       <FILE id="uFLzXL" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
       <FILE id="wC1kcJ" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>

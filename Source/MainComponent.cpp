@@ -15,15 +15,19 @@ MainComponent::MainComponent():
     waveformDisplay.setTransportSource(&transportSource);
     addAndMakeVisible(waveformDisplay); // adds the component to the parent's hierarchy - a must for rendering anything
     
+    convolutionProcessor = std::make_unique<ConvolutionProcessor>(timeDomainConvolution);
+    convolutionProcessor->setAudioSource(&transportSource);
+    
+    processorPlayer.setProcessor(convolutionProcessor.get());
+    
     deviceManager.initialiseWithDefaultDevices(0, 2);
-    deviceManager.addAudioCallback(&sourcePlayer);
-    sourcePlayer.setSource(&transportSource);
+    deviceManager.addAudioCallback(&processorPlayer);
     
     convolutionOptions.addItem("No convolution", 1);
-    convolutionOptions.addItem("convolution option 1", 2);
-    convolutionOptions.addItem("convolution option 2", 3);
-    convolutionOptions.addItem("convolution option 3", 4);
-    convolutionOptions.addItem("convolution option 4", 5);
+    convolutionOptions.addItem("Big Hall", 2);
+    convolutionOptions.addItem("Metallic Delay 2", 3);
+    convolutionOptions.addItem("Small Church", 4);
+    convolutionOptions.addItem("Decaying White Noise", 5);
     convolutionOptions.setSelectedItemIndex(0);
     
     addAndMakeVisible(convolutionOptions);
@@ -33,9 +37,9 @@ MainComponent::MainComponent():
 
 MainComponent::~MainComponent()
 {
-    sourcePlayer.setSource(nullptr);
-    deviceManager.removeAudioCallback(&sourcePlayer);
+    processorPlayer.setProcessor(nullptr);
     transportSource.setSource(nullptr);
+    deviceManager.removeAudioCallback(&processorPlayer);
 }
 
 // used only for graphics only and not layout
@@ -79,14 +83,50 @@ void MainComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
 {
     if(comboBoxThatHasChanged == &convolutionOptions)
     {
+        bool wasPlaying = transportSource.isPlaying();
+        if(wasPlaying)
+            transportSource.stop();
+        
+        processorPlayer.setProcessor(nullptr);
+
         int selectedId = convolutionOptions.getSelectedId();
+        if(selectedId == 1) {
+            convolutionProcessor->setConvolutionEnabled(false);
+        }
+        else
+        {
             switch (selectedId)
             {
-                case 1:
-                    break;
                 case 2:
+                    timeDomainConvolution.loadImpulseResponseFromBinaryDataInAssets(BinaryData::BIG_HALL_wav, BinaryData::BIG_HALL_wavSize);
+                    break;
+                case 3:
+                    timeDomainConvolution.loadImpulseResponseFromBinaryDataInAssets(BinaryData::Metallic_delay_effect_wav, BinaryData::Metallic_delay_effect_wavSize);
+                    break;
+                case 4:
+                    timeDomainConvolution.loadImpulseResponseFromBinaryDataInAssets(BinaryData::SMALL_CHURCH_wav, BinaryData::SMALL_CHURCH_wavSize);
+                    break;
+                case 5:
+                    timeDomainConvolution.loadImpulseResponseFromBinaryDataInAssets(BinaryData::decaying_white_noise_wav, BinaryData::decaying_white_noise_wavSize);
                     break;
             }
+            DBG("Loaded IR with length: " + juce::String(timeDomainConvolution.getImpulseResponseLength()));
+            DBG("IR first sample value: " + juce::String(timeDomainConvolution.getFirstSampleValue()));
+            convolutionProcessor->setConvolutionEnabled(true);
+            // create a preview of the convolved audio for visualization
+            if (currentFileChooser && currentFileChooser->getResult().exists())
+            {
+                auto file = currentFileChooser->getResult();
+                convolutionProcessor->createConvolvedPreview(file,
+                                                             [this](const juce::AudioBuffer<float>& buffer, double sampleRate) {
+                    waveformDisplay.setConvolvedSource(buffer, sampleRate);
+                });
+            }
+            // reconnect the processor and restart if needed
+            processorPlayer.setProcessor(convolutionProcessor.get());
+            if(wasPlaying)
+                transportSource.start();
+        }
     }
 }
 
